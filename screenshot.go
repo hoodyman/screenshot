@@ -198,24 +198,27 @@ type WindowStruct struct {
 	Title string
 }
 
+var enumWindowCallbackHandler uintptr
+
 func EnumWindowList() []WindowStruct {
-	var enumWindowCallback uintptr
-	ww := make([]WindowStruct, 0)
-	if enumWindowCallback == 0 {
-		f := func(h uintptr, p uintptr) uintptr {
+	enumWindowCallbackData := make([]WindowStruct, 0)
+	if enumWindowCallbackHandler == 0 {
+		enumWindowCallbackFunction := func(h uintptr, p uintptr) uintptr {
 			title, err := funcGetWindowText(h)
 			if err != nil {
 				return 1
 			}
 			if len(title) != 0 {
 				if b, _ := funcIsWindowVisible(h); b {
-					ww = append(ww, WindowStruct{HWND: h, Title: title})
+					x := (*[]WindowStruct)(unsafe.Pointer(p))
+					*x = append(*x, WindowStruct{HWND: h, Title: title})
 				}
 			}
 			return 1
 		}
-		enumWindowCallback = syscall.NewCallback(f)
+		enumWindowCallbackHandler = syscall.NewCallback(enumWindowCallbackFunction)
 	}
-	entryEnumWindows.Call(enumWindowCallback, 0)
-	return ww
+	enumWindowCallbackData = make([]WindowStruct, 0)
+	entryEnumWindows.Call(enumWindowCallbackHandler, uintptr(unsafe.Pointer(&enumWindowCallbackData)))
+	return enumWindowCallbackData
 }

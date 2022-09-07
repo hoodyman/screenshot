@@ -129,6 +129,11 @@ func funcIsWindowVisible(hwnd uintptr) (bool, error) {
 
 var findWindowCallback uintptr
 
+type findWindowCallbackData struct {
+	PWndHandle uintptr
+	PWndTitle  uintptr
+}
+
 func funcFindWindow(windowName string) (uintptr, error) {
 	var hwnd uintptr
 	if findWindowCallback == 0 {
@@ -137,16 +142,21 @@ func funcFindWindow(windowName string) (uintptr, error) {
 			if err != nil {
 				return 1
 			}
-			if title == windowName {
-				b := (*uintptr)(unsafe.Pointer(p))
-				*b = h
+			fwcd := (*findWindowCallbackData)(unsafe.Pointer(p))
+			targetWindowTitle := *(*string)(unsafe.Pointer(fwcd.PWndTitle))
+			targetWindowHandle := (*uintptr)(unsafe.Pointer(fwcd.PWndHandle))
+			if title == targetWindowTitle {
+				*targetWindowHandle = h
 				return 0
 			}
 			return 1
 		}
 		findWindowCallback = syscall.NewCallback(f)
 	}
-	r0, _, err := entryEnumWindows.Call(findWindowCallback, uintptr(unsafe.Pointer(&hwnd)))
+	f := findWindowCallbackData{}
+	f.PWndHandle = uintptr(unsafe.Pointer(&hwnd))
+	f.PWndTitle = uintptr(unsafe.Pointer(&windowName))
+	r0, _, err := entryEnumWindows.Call(findWindowCallback, uintptr(unsafe.Pointer(&f)))
 	if r0 == 0 && hwnd == 0 {
 		return 0, err
 	}
