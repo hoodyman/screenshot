@@ -131,22 +131,19 @@ var findWindowCallback uintptr
 
 type findWindowCallbackData struct {
 	PWndHandle uintptr
-	PWndTitle  uintptr
+	PWndTitle  string
 }
 
 func funcFindWindow(windowName string) (uintptr, error) {
-	var hwnd uintptr
 	if findWindowCallback == 0 {
 		f := func(h uintptr, p uintptr) uintptr {
-			title, err := funcGetWindowText(h)
-			if err != nil {
+			title, _ := funcGetWindowText(h)
+			if title == "" {
 				return 1
 			}
 			fwcd := (*findWindowCallbackData)(unsafe.Pointer(p))
-			targetWindowTitle := *(*string)(unsafe.Pointer(fwcd.PWndTitle))
-			targetWindowHandle := (*uintptr)(unsafe.Pointer(fwcd.PWndHandle))
-			if title == targetWindowTitle {
-				*targetWindowHandle = h
+			if title == fwcd.PWndTitle {
+				fwcd.PWndHandle = h
 				return 0
 			}
 			return 1
@@ -154,16 +151,15 @@ func funcFindWindow(windowName string) (uintptr, error) {
 		findWindowCallback = syscall.NewCallback(f)
 	}
 	f := findWindowCallbackData{}
-	f.PWndHandle = uintptr(unsafe.Pointer(&hwnd))
-	f.PWndTitle = uintptr(unsafe.Pointer(&windowName))
-	r0, _, err := entryEnumWindows.Call(findWindowCallback, uintptr(unsafe.Pointer(&f)))
-	if r0 == 0 && hwnd == 0 {
-		return 0, err
+	f.PWndTitle = windowName
+	r0, _, _ := entryEnumWindows.Call(findWindowCallback, uintptr(unsafe.Pointer(&f)))
+	if r0 == 0 && f.PWndHandle == 0 {
+		return 0, fmt.Errorf("entryEnumWindows")
 	}
-	if hwnd == 0 {
+	if f.PWndHandle == 0 {
 		return 0, fmt.Errorf("window with title %v not found", windowName)
 	}
-	return hwnd, nil
+	return f.PWndHandle, nil
 }
 
 func funcReleaseDC(hwnd uintptr, hdc uintptr) error {
