@@ -170,7 +170,8 @@ func (ss *ScreenshotState) MakeScreenshot() (*image.RGBA, error) {
 	}
 
 	img := image.RGBA{}
-	img.Pix = ss.imageData
+	img.Pix = make([]uint8, len(ss.imageData))
+	copy(img.Pix, ss.imageData)
 	img.Stride = 4 * int(bmpInfo.BiWidth)
 	img.Rect = image.Rect(0, 0, int(bmpInfo.BiWidth), -int(bmpInfo.BiHeight))
 
